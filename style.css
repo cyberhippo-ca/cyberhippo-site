@@ -105,6 +105,8 @@ h1 {
 }
 
 a { color: var(--cyan); text-decoration: none; }
+/* Links inside text are underlined, so they don't rely on colour alone */
+main a { text-decoration: underline; text-underline-offset: 3px; }
 a:hover { text-decoration: underline; }
 a:focus-visible { outline: 2px solid var(--yellow); outline-offset: 3px; }
 
