@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>An Offline Knowledge and AI Box with Project NOMAD | cyberhippo.ca</title>
+  <meta name="description" content="Setting up Project NOMAD on a gaming laptop with WSL2: offline Wikipedia, maps, reference libraries and a local AI model, and the map download that broke the setup wizard.">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+  <header class="intro">
+    <p class="handle"><a href="/">cyberhippo.ca</a></p>
+    <h1>An Offline Knowledge and AI Box with Project NOMAD</h1>
+    <p class="tagline">Write-up &middot; October 2026</p>
+  </header>
+  <main class="article">
+<p>I set up <a href="https://www.projectnomad.us/">Project NOMAD</a> on an
+Acer Nitro V 15 to have a box that works with no internet: offline
+Wikipedia, maps, medical and reference libraries, and a local AI model I
+can ask questions. NOMAD is an open-source project from Crosstalk
+Solutions that bundles all of this behind one web dashboard.</p>
+<p><strong>Result:</strong> NOMAD running in WSL2 on Windows, with
+Wikipedia, maps of Canada, reference and education content, and Qwen 3.5
+9B running locally through Ollama.</p>
+
+<h2 id="hardware">Hardware</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Hardware table"><table>
+<thead>
+<tr><th>Part</th><th>Spec</th><th>Why it matters</th></tr>
+</thead>
+<tbody>
+<tr><td>Laptop</td><td>Acer Nitro V 15</td><td>x86 with an NVIDIA GPU, which is what NOMAD's AI tools expect</td></tr>
+<tr><td>GPU</td><td>RTX 5060 laptop, 8 GB VRAM</td><td>The limit that decides which AI models run fast</td></tr>
+<tr><td>RAM</td><td>32 GB</td><td>Room to offload bigger models to system memory, at the cost of speed</td></tr>
+<tr><td>OS</td><td>Windows</td><td>NOMAD is built for Debian-based Linux, so this shaped the install choice</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="1-how-to-install">1. Choosing how to install it</h2>
+<p>NOMAD is built for Debian-based Linux, and the laptop runs Windows. The
+options were:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Install options table"><table>
+<thead>
+<tr><th>Option</th><th>Upside</th><th>Downside</th></tr>
+</thead>
+<tbody>
+<tr><td>Full Ubuntu install</td><td>Officially recommended, best performance</td><td>Wipes Windows</td></tr>
+<tr><td><strong>WSL2 on Windows</strong></td><td>Keeps Windows, no dual boot (<a href="https://www.projectnomad.us/install/wsl2">guide</a>)</td><td>Community-supported, slightly slower</td></tr>
+<tr><td>Virtual machine</td><td>Isolated</td><td>Not supported by the project</td></tr>
+</tbody>
+</table></div>
+<p>I went with <strong>WSL2</strong> so the laptop stays usable as a
+Windows machine. After the install, NOMAD's <strong>Easy Setup</strong>
+wizard in the browser picks which content to download.</p>
+
+<h2 id="2-content">2. Content</h2>
+<ul>
+<li><strong>Offline Wikipedia</strong></li>
+<li><strong>Maps</strong> of Canada (see the next section)</li>
+<li><strong>Medical, reference and education</strong> libraries</li>
+<li><strong>AI chat</strong> through Ollama</li>
+</ul>
+<p>Storage adds up fast: full English Wikipedia with images is over
+100 GB on its own, so it's worth planning disk space before ticking
+everything.</p>
+
+<h2 id="3-the-map-download">3. The map download that broke the wizard</h2>
+<p>Every time I tried to download maps, the wizard sat on "estimating the
+map download size" and then failed with a <strong>500 error</strong>. The
+rest of NOMAD worked; only this step failed.</p>
+<p>The cause was my request: <strong>all of Canada at zoom level
+15</strong>.</p>
+<p>Map tiles grow exponentially with zoom. Each zoom level splits every
+tile into four, so zoom 15 has about <strong>1,000 times</strong> as many
+tiles as zoom 10 over the same area (4<sup>5</sup> = 1,024). Zoom 15 is
+street-level detail, and Canada is the second-largest country in the
+world. The size estimate couldn't finish, and the backend returned a 500
+instead of a number.</p>
+<p><strong>Fix:</strong> I dropped the zoom level for the Canada-wide
+map, and the estimate and download completed. Street-level zoom only
+makes sense for a small area, like a single city.</p>
+
+<h2 id="4-choosing-a-model">4. Choosing an AI model</h2>
+<p>With 8 GB of VRAM, the practical range is models up to about 8 to 9
+billion parameters, quantized so they fit entirely on the GPU. Bigger
+models (14B to 32B) can run by spilling into the 32 GB of system RAM, but
+much more slowly.</p>
+<p>I picked <strong>Qwen 3.5 9B</strong>, a common recommendation for 8 GB
+cards. Rankings in this space change month to month, so I'll revisit the
+choice rather than treat it as settled.</p>
+<p>Other picks depend on the job:</p>
+<ul>
+<li><strong>Tool use and agents:</strong> smaller models that are reliable
+at structured output can beat larger ones, because one malformed response
+breaks an agent loop</li>
+<li><strong>Searching my own documents:</strong> a separate embedding
+model alongside the chat model</li>
+<li><strong>Coding:</strong> a coding-tuned 7B model fits; the strong
+agentic coding models are too big for 8 GB</li>
+</ul>
+
+<h2 id="what-i-learned">What I learned</h2>
+<ul>
+<li><strong>The GPU's memory is the real limit.</strong> VRAM decides
+which models run well, more than the CPU or system RAM.</li>
+<li><strong>Read the error in context.</strong> "Estimating size" then a
+500 pointed at the estimate step, not the download or my connection.</li>
+<li><strong>Zoom levels are exponential.</strong> Five zoom levels is a
+thousandfold difference in tiles. Match the detail to the area.</li>
+<li><strong>Pick the install path for how you use the machine.</strong>
+WSL2 traded a little performance for keeping Windows.</li>
+</ul>
+
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li>Make it always on: start NOMAD and Ollama at boot, and set a battery
+charge limit for a laptop that's plugged in all the time</li>
+<li>Reach it from my other devices over my WireGuard VPN, without exposing
+it to the internet</li>
+<li>Keep Ollama's API off the network, or limit it to specific devices,
+since it has no login</li>
+<li>Add more detailed maps for my local area</li>
+</ul>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://www.projectnomad.us/">Project NOMAD</a> and its <a href="https://github.com/Crosstalk-Solutions/project-nomad">GitHub repo</a></li>
+<li><a href="https://www.projectnomad.us/install/wsl2">Project NOMAD: WSL2 install guide</a></li>
+<li><a href="https://learn.microsoft.com/en-us/windows/wsl/install">Microsoft: install WSL</a></li>
+<li><a href="https://ollama.com/">Ollama</a></li>
+<li><a href="https://wiki.openstreetmap.org/wiki/Zoom_levels">OpenStreetMap: zoom levels</a></li>
+</ul>
+
+  </main>
+  <footer>
+    <p><a href="/">&larr; Back to cyberhippo.ca</a></p>
+  </footer>
+</body>
+</html>
