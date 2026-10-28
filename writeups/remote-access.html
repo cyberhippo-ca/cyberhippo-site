@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Closing Exposed Remote Desktop with WireGuard | cyberhippo.ca</title>
+  <meta name="description" content="A firewall audit found remote desktop open to the internet. Replacing it with WireGuard, checking the logs, and reviewing every other way in.">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+  <header class="intro">
+    <p class="handle"><a href="/">cyberhippo.ca</a></p>
+    <h1>Closing Exposed Remote Desktop with WireGuard</h1>
+    <p class="tagline">Write-up &middot; October 2026</p>
+  </header>
+  <main class="article">
+<p>I audited my own OPNsense firewall and found two old port forwards
+sending internet traffic to a Mac mini on my home network: VNC (Screen
+Sharing) and RDP. I replaced them with a WireGuard VPN, removed the
+forwards, checked the logs to see whether anyone got in, and then looked
+for every other way in from the internet.</p>
+<p><strong>Result:</strong> no successful logins from the internet. Bots
+had been trying for at least 30 hours. Remote desktop now only works over
+WireGuard, both ports are closed from outside, and the one app I publish
+to the internet sits behind an email login.</p>
+
+<h2 id="starting-point">Starting point</h2>
+<ul>
+<li>OPNsense on a Protectli box, with a config carried over from my
+previous house</li>
+<li>A Mac mini I connect to remotely for Screen Sharing and file
+sharing</li>
+<li>Port forwards I had set up years earlier and hadn't looked at
+since</li>
+</ul>
+
+<h2 id="1-the-audit">1. The audit</h2>
+<p>I exported the firewall config and ran it through a small script that
+prints only the structure (interfaces, rules, NAT, VPN, DNS) and redacts
+hostnames, password hashes, keys, MAC addresses and public IPs. That made
+it safe to review and share.</p>
+<p>The NAT section showed two forwards from the WAN to the Mac mini:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Port forwards found table"><table>
+<thead>
+<tr><th>Port</th><th>Service</th><th>Risk</th></tr>
+</thead>
+<tbody>
+<tr><td>TCP 5900</td><td>VNC / macOS Screen Sharing</td><td>The Mac's login screen was reachable by anyone on the internet</td></tr>
+<tr><td>TCP 3389</td><td>RDP</td><td>Same idea, for Windows Remote Desktop</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="2-wireguard-first">2. WireGuard first, then remove the forwards</h2>
+<p>I still needed remote access, so I set up the replacement before
+removing anything. That way I couldn't lock myself out.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="WireGuard layout table"><table>
+<thead>
+<tr><th>Piece</th><th>Setup</th></tr>
+</thead>
+<tbody>
+<tr><td>Instance</td><td>WireGuard on OPNsense, its own interface and a separate subnet for VPN clients</td></tr>
+<tr><td>Peers</td><td>One per device, each with its own key pair and a single <code>/32</code> address</td></tr>
+<tr><td>Client config</td><td>Split tunnel: only home subnets go through the VPN</td></tr>
+<tr><td>WAN rule</td><td>Allow UDP to the WireGuard port only</td></tr>
+<tr><td>VPN rule</td><td>VPN clients can reach the LAN, nothing else</td></tr>
+</tbody>
+</table></div>
+<p>Getting the tunnel working took a few fixes:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="WireGuard problems table"><table>
+<thead>
+<tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+</thead>
+<tbody>
+<tr><td>No handshake</td><td>Two peers had the same tunnel address</td><td>One peer per device, unique address each</td></tr>
+<tr><td>No handshake</td><td>The laptop's config used an address and key the firewall didn't know</td><td>Added the laptop's public key to its peer and matched the address</td></tr>
+<tr><td>No traffic reaching WireGuard</td><td>The WAN rule had the port on the source side</td><td>Moved the port to the destination</td></tr>
+<tr><td>Tunnel up, LAN unreachable</td><td>The allow rule was on the WAN interface</td><td>Re-created it on the WireGuard interface, destination LAN net</td></tr>
+</tbody>
+</table></div>
+<p>Once Screen Sharing worked over the VPN from a phone hotspot, I deleted
+both forwards (<strong>Firewall → NAT → Destination NAT</strong>).</p>
+
+<h2 id="3-did-anyone-get-in">3. Did anyone get in?</h2>
+<p>macOS logs Screen Sharing authentication, so I pulled the history on
+the Mac mini:</p>
+<pre tabindex="0"><code>log show --predicate 'process == "screensharingd"' --last 7d | grep -i auth</code></pre>
+<p>Even though I asked for 7 days, macOS only had about 31 hours of
+history. In that window:</p>
+<ul>
+<li><strong>Successful logins:</strong> 11, all my own account, all from
+my home network or my laptop over WireGuard</li>
+<li><strong>Failed logins from the internet:</strong> 34, from three
+addresses. Most tried the username <code>root</code>, which points to
+automated bots rather than someone after me specifically.</li>
+<li><strong>Connections that reached the login step:</strong> about 3,600.
+Overnight it was a steady 320 or so per hour.</li>
+</ul>
+<p><img src="/writeups/images/screen-sharing-connections.svg"
+alt="Bar chart of connections to the Screen Sharing login per hour. About 50 to 75 per hour on the morning of Oct 27, a few per hour through the day, then about 320 to 335 per hour from 01:00 to 11:00 on Oct 28. It stops at 11:44, when the port forwards were removed."
+width="760" height="340"></p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Failed logins table"><table>
+<thead>
+<tr><th>Source (last octet masked)</th><th>Attempts</th></tr>
+</thead>
+<tbody>
+<tr><td><code>187.14.82.x</code> (two addresses)</td><td>26, as <code>root</code></td></tr>
+<tr><td><code>77.239.124.x</code></td><td>8, no username</td></tr>
+</tbody>
+</table></div>
+<p>The connections stop at <strong>11:44</strong>, the minute I deleted
+the forwards.</p>
+<p>The RDP forward turned out to point at nothing. macOS has no built-in
+RDP server (the Remote Desktop app on a Mac is only a client), and nothing
+was listening on 3389.</p>
+
+<h2 id="4-verify-from-outside">4. Verify from outside</h2>
+<p>I checked both ports with an external port checker. Both timed out.</p>
+<p>One catch: the check has to run against the <strong>home</strong> IP.
+My tunnel is split, so browsing from a hotspot with the VPN on would have
+tested the hotspot's IP instead. I confirmed the IP the checker used
+matched the firewall's WAN address.</p>
+
+<h2 id="5-other-ways-in">5. Other ways in</h2>
+<p>A port scan only finds things listening for inbound connections. Some
+tools connect <em>out</em> to a vendor and let traffic back in that way,
+so closing ports doesn't touch them. I went through each one:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Other ways in table"><table>
+<thead>
+<tr><th>Path</th><th>Finding</th><th>Action</th></tr>
+</thead>
+<tbody>
+<tr><td>Remote access apps</td><td>AnyDesk installed as a startup service. Its log showed one incoming session, from my own laptop.</td><td>Reviewed; to be removed now that WireGuard covers it</td></tr>
+<tr><td>Cloudflare Tunnel</td><td>One public hostname, pointing at a single app on the Mac mini</td><td>Put Cloudflare Access in front of it (below)</td></tr>
+<tr><td>Remaining port forwards</td><td>One, for a media server with its own account login</td><td>Kept</td></tr>
+<tr><td>macOS sharing settings</td><td>Remote Management on, which controls Screen Sharing</td><td>Turned off the separate VNC password; access limited to my account</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="6-cloudflare-access">6. Cloudflare Access for the published app</h2>
+<p>The tunnel hides my home IP and exposes only one app, but that app's
+login page was still public. I wanted friends to be able to use it without
+a VPN, so I added a Cloudflare Access application on the free Zero Trust
+plan:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Cloudflare Access settings table"><table>
+<thead>
+<tr><th>Setting</th><th>Value</th></tr>
+</thead>
+<tbody>
+<tr><td>Policy</td><td>Allow, only listed email addresses</td></tr>
+<tr><td>Login method</td><td>One-time PIN by email</td></tr>
+<tr><td>Instant authentication</td><td>On, so there's no "choose a login method" screen</td></tr>
+<tr><td>Session</td><td>1 month</td></tr>
+</tbody>
+</table></div>
+<p>The first test sent me to the Cloudflare dashboard login instead of an
+email-code page. The account already had a "Cloudflare" identity
+provider, and one-time PIN is only the default when no provider exists.
+Adding one-time PIN and selecting only it fixed that. Now visitors enter
+their email, get a code, and only then reach the app.</p>
+
+<h2 id="what-i-learned">What I learned</h2>
+<ul>
+<li><strong>Old forwards outlive their reasons.</strong> These survived a
+house move without anyone looking at them again.</li>
+<li><strong>An open port gets found fast.</strong> The log showed steady
+scanning, not a one-off.</li>
+<li><strong>Build the replacement first.</strong> Getting WireGuard working
+before removing the forwards meant no lockout.</li>
+<li><strong>Closing ports isn't the whole picture.</strong> AnyDesk and
+Cloudflare Tunnel both connect outward and never show up in a port scan.
+They needed their own review.</li>
+<li><strong>Check the logs after the fix.</strong> They answered whether
+anyone got in, and they showed the exact minute the attack traffic
+stopped.</li>
+<li><strong>Test from the right place.</strong> A split tunnel changes
+which IP an online port checker sees.</li>
+</ul>
+
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li>Remove AnyDesk</li>
+<li>Migrate the firewall's leftover legacy rules to the new rules
+format</li>
+<li>Firewall rules between VLANs, and intrusion detection on the WAN</li>
+</ul>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://docs.opnsense.org/manual/how-tos/wireguard-client.html">OPNsense: WireGuard road warrior setup</a></li>
+<li><a href="https://www.wireguard.com/">WireGuard</a></li>
+<li><a href="https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/">Cloudflare Access: self-hosted applications</a></li>
+<li><a href="https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/one-time-pin/">Cloudflare Access: one-time PIN</a></li>
+</ul>
+
+  </main>
+  <footer>
+    <p><a href="/">&larr; Back to cyberhippo.ca</a></p>
+  </footer>
+</body>
+</html>
