@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hardening a Personal Domain | cyberhippo.ca</title>
+  <meta name="description" content="Email spoofing protection, DNSSEC, HSTS, security headers and an accessibility pass for cyberhippo.ca, all on Cloudflare's free plan.">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+  <header class="intro">
+    <p class="handle"><a href="/">cyberhippo.ca</a></p>
+    <h1>Hardening a Personal Domain</h1>
+    <p class="tagline">Write-up &middot; October 2026 &middot; <a href="https://github.com/cyberhippo-ca/domain-hardening">Source on GitHub</a></p>
+  </header>
+  <main class="article">
+<p>How I locked down my domain and launched a small portfolio site on
+it: email spoofing protection, DNSSEC, HTTPS enforcement, security
+headers, HSTS, and an accessibility and quality pass. Everything is on
+Cloudflare's free plan.</p>
+<p><strong>Result:</strong> spoofed email from the domain is rejected,
+DNS answers are signed, the site is HTTPS-only, it scores
+<strong>A+</strong> on securityheaders.com, and <strong>100 in all four
+Lighthouse categories</strong> on desktop and mobile.</p>
+<p><img src="/writeups/images/securityheaders-a-plus.png"
+alt="securityheaders.com A+ result for cyberhippo.ca" /></p>
+<h2 id="starting-point">Starting point</h2>
+<ul>
+<li>Domain registered on Cloudflare, with DNS on Cloudflare</li>
+<li>No website, and no email on the domain</li>
+<li>No DNSSEC</li>
+</ul>
+<p>A domain that doesn't send email can still be spoofed, and one
+without a website is still a target for anyone looking to impersonate
+it. So I treated the "empty" domain as something worth protecting.</p>
+<h2 id="1-email-spoofing-protection">1. Email spoofing protection</h2>
+<p>The domain sends and receives no mail, so the goal was to tell every
+receiving mail server: nothing legitimate ever comes from here, so
+reject anything that claims to.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="1. Email spoofing protection table"><table>
+<thead>
+<tr class="header">
+<th>Type</th>
+<th>Name</th>
+<th>Value</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>TXT</td>
+<td><code>@</code></td>
+<td><code>v=spf1 -all</code></td>
+<td>SPF: no server is allowed to send mail for this domain</td>
+</tr>
+<tr class="even">
+<td>TXT</td>
+<td><code>*._domainkey</code></td>
+<td><code>v=DKIM1; p=</code></td>
+<td>DKIM: empty key for every selector, so no DKIM signature can be
+valid</td>
+</tr>
+<tr class="odd">
+<td>TXT</td>
+<td><code>_dmarc</code></td>
+<td><code>v=DMARC1; p=reject;</code></td>
+<td>DMARC: reject mail that fails SPF and DKIM. Subdomains inherit
+it.</td>
+</tr>
+<tr class="even">
+<td>MX</td>
+<td><code>@</code></td>
+<td><code>.</code> (priority 0)</td>
+<td>Null MX (RFC 7505): the domain accepts no mail</td>
+</tr>
+</tbody>
+</table></div>
+<p>A spoofed message can't pass SPF (no senders allowed) or DKIM (no
+valid key), so it fails DMARC, and receivers that enforce DMARC reject
+it.</p>
+<p><strong>Verification:</strong></p>
+<pre tabindex="0"><code>$ dig TXT cyberhippo.ca +short
+&quot;v=spf1 -all&quot;
+$ dig TXT _dmarc.cyberhippo.ca +short
+&quot;v=DMARC1; p=reject;&quot;
+$ dig TXT test._domainkey.cyberhippo.ca +short
+&quot;v=DKIM1; p=&quot;
+$ dig MX cyberhippo.ca +short
+0 .</code></pre>
+<p>The DKIM check queries a made-up selector (<code>test</code>) on
+purpose, to prove the wildcard answers for any selector.</p>
+<h2 id="2-dnssec">2. DNSSEC</h2>
+<p>DNSSEC signs DNS answers so resolvers can tell a real answer from a
+forged one. Resolvers follow a chain of trust: the root vouches for
+<code>.ca</code>, <code>.ca</code> vouches for my signing key, and my
+key signs my records.</p>
+<p>Setup: <strong>DNS → Settings → DNSSEC → Enable</strong>. Cloudflare
+signed the zone right away and, since it's also the registrar, sent the
+DS record to the <code>.ca</code> registry automatically. It showed
+"pending" for a few hours until the registry published it.</p>
+<p><strong>Verification:</strong></p>
+<pre tabindex="0"><code>$ dig DS cyberhippo.ca +short
+2371 13 2 927373CEBBEC928752E3EBA76BCDD4CB96ADB2848E9363C56E9125C1 C205BED6</code></pre>
+<p>Key tag 2371, algorithm 13 (ECDSA P-256/SHA-256), digest type 2
+(SHA-256). Validating resolvers now return answers with the AD
+("authenticated data") flag set.</p>
+<h2 id="3-the-site">3. The site</h2>
+<p>A single static page: plain HTML and CSS, no JavaScript, no external
+fonts, scripts or trackers. Code: <a
+href="https://github.com/cyberhippo-ca/cyberhippo-site">cyberhippo-ca/cyberhippo-site</a>.</p>
+<p>Hosted on <strong>Cloudflare Pages</strong>, connected to the GitHub
+repo, so each push to <code>main</code> redeploys. Cloudflare's GitHub
+access is limited to that one repo.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="3. The site table"><table>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Build command</td>
+<td><code>exit 0</code> (nothing to build)</td>
+</tr>
+<tr class="even">
+<td>Output directory</td>
+<td><code>/</code></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="4-https-redirects-and-headers">4. HTTPS, redirects and
+headers</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="4. HTTPS, redirects and headers table"><table>
+<thead>
+<tr class="header">
+<th>Piece</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>cyberhippo.ca</code> and <code>www.cyberhippo.ca</code></td>
+<td>Pages custom domains. Cloudflare creates the DNS records and
+certificates.</td>
+</tr>
+<tr class="even">
+<td><code>www</code> → root</td>
+<td>Redirect Rule: <code>https://www.*</code> →
+<code>https://${1}</code>, 301, query string kept</td>
+</tr>
+<tr class="odd">
+<td>HTTP → HTTPS</td>
+<td><strong>Always Use HTTPS</strong></td>
+</tr>
+<tr class="even">
+<td>Security headers</td>
+<td>A <a
+href="https://github.com/cyberhippo-ca/cyberhippo-site/blob/main/_headers"><code>_headers</code></a>
+file in the site repo</td>
+</tr>
+</tbody>
+</table></div>
+<p>The headers:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="4. HTTPS, redirects and headers (2) table"><table>
+<thead>
+<tr class="header">
+<th>Header</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>Content-Security-Policy: default-src 'self'; script-src 'none'; ...</code></td>
+<td>Browsers load only files from this site and run no scripts at
+all</td>
+</tr>
+<tr class="even">
+<td><code>X-Frame-Options: DENY</code></td>
+<td>The page can't be embedded elsewhere (clickjacking)</td>
+</tr>
+<tr class="odd">
+<td><code>X-Content-Type-Options: nosniff</code></td>
+<td>No guessing file types</td>
+</tr>
+<tr class="even">
+<td><code>Referrer-Policy: strict-origin-when-cross-origin</code></td>
+<td>Limits what's shared when visitors follow links away</td>
+</tr>
+<tr class="odd">
+<td><code>Permissions-Policy</code></td>
+<td>Camera, microphone and location turned off</td>
+</tr>
+<tr class="even">
+<td><code>Cross-Origin-Opener-Policy: same-origin</code></td>
+<td>Other sites can't keep a handle on this page's window</td>
+</tr>
+<tr class="odd">
+<td><code>Cross-Origin-Resource-Policy: same-origin</code></td>
+<td>Other sites can't embed this site's files</td>
+</tr>
+<tr class="even">
+<td><code>require-trusted-types-for 'script'</code> (in the CSP)</td>
+<td>Blocks a class of script-injection attacks</td>
+</tr>
+<tr class="odd">
+<td><code>! Access-Control-Allow-Origin</code></td>
+<td>Removes the <code>*</code> CORS header Cloudflare Pages adds by
+default</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="5-hsts">5. HSTS</h2>
+<p>HSTS tells browsers to only ever use HTTPS for the domain, and they
+cache that instruction. Because it's sticky, I started cautiously:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="5. HSTS table"><table>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Value</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Max age</td>
+<td>1 month</td>
+<td>A mistake fixes itself within a month. I'll raise it once it's
+proven stable.</td>
+</tr>
+<tr class="even">
+<td>Include subdomains</td>
+<td>Off</td>
+<td>I plan internal subdomains that don't have certificates yet</td>
+</tr>
+<tr class="odd">
+<td>Preload</td>
+<td>Off</td>
+<td>Hard to undo; not until everything is long-term stable</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="6-accessibility-and-site-quality">6. Accessibility and site
+quality</h2>
+<p>The site was tested with an automated accessibility scan (axe,
+against WCAG 2.2 AA) and with Lighthouse, and I fixed what they
+found.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="6. Accessibility and site quality table"><table>
+<thead>
+<tr class="header">
+<th>Finding</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Link not distinguishable from text</td>
+<td>The inline link was cyan in lavender text, with no underline (1.5:1
+between the two colours), so it relied on colour alone</td>
+<td>Underline links inside page content</td>
+</tr>
+<tr class="even">
+<td>Console error and "third-party" script</td>
+<td>Cloudflare Web Analytics was injecting a tracking script. My CSP
+(<code>script-src 'none'</code>) blocked it, which logged an error.</td>
+<td>Turned Web Analytics off, so nothing is injected</td>
+</tr>
+<tr class="odd">
+<td><code>robots.txt</code> invalid</td>
+<td>There was no <code>robots.txt</code>, and Pages served the homepage
+for any unknown path, so crawlers got HTML</td>
+<td>Added <code>robots.txt</code>, <code>sitemap.xml</code> and a
+<code>404.html</code>. With a 404 page, Pages returns real 404s for
+missing paths.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Colour contrast was also calculated directly, since automated tools
+can't measure text over gradients. Every text colour passes WCAG AA
+(4.5:1) against every background on the page; body text is 14:1 or
+better.</p>
+<p><strong>Lighthouse (Oct 28, 2026):</strong></p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="6. Accessibility and site quality (2) table"><table>
+<thead>
+<tr class="header">
+<th>Device</th>
+<th>Performance</th>
+<th>Accessibility</th>
+<th>Best Practices</th>
+<th>SEO</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Desktop</td>
+<td>100</td>
+<td>100</td>
+<td>100</td>
+<td>100</td>
+</tr>
+<tr class="even">
+<td>Mobile</td>
+<td>100</td>
+<td>100</td>
+<td>100</td>
+<td>100</td>
+</tr>
+</tbody>
+</table></div>
+<p>Largest Contentful Paint was 0.4 s on desktop and 1.0 s on emulated
+mobile (slow 4G).</p>
+<h2 id="verification-summary">Verification summary</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Verification summary table"><table>
+<thead>
+<tr class="header">
+<th>Check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>http://cyberhippo.ca</code></td>
+<td>301 → <code>https://cyberhippo.ca/</code></td>
+</tr>
+<tr class="even">
+<td><code>https://www.cyberhippo.ca/some/page?x=1</code></td>
+<td>301 → <code>https://cyberhippo.ca/some/page?x=1</code></td>
+</tr>
+<tr class="odd">
+<td>HSTS header</td>
+<td><code>strict-transport-security: max-age=2592000</code></td>
+</tr>
+<tr class="even">
+<td>securityheaders.com</td>
+<td>A+</td>
+</tr>
+<tr class="odd">
+<td>Lighthouse, desktop and mobile</td>
+<td>100 in all four categories</td>
+</tr>
+<tr class="even">
+<td><code>https://cyberhippo.ca/does-not-exist</code></td>
+<td>404</td>
+</tr>
+<tr class="odd">
+<td>WHOIS</td>
+<td>No personal information</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="what-i-learned">What I learned</h2>
+<ul>
+<li><strong>Verify, don't assume.</strong> After adding the email
+records, a lookup showed the DKIM wildcard wasn't actually published.
+Spoofed mail would still have failed DMARC through SPF alone, but the
+setup didn't match what I'd documented. Checking each record caught
+it.</li>
+<li><strong>Redirect rules need traffic to act on.</strong> The
+<code>www</code> redirect did nothing until <code>www</code> had a
+<strong>proxied</strong> DNS record. Cloudflare's rules run at its edge,
+so requests have to pass through Cloudflare first. The dashboard warned
+about this, which helped.</li>
+<li><strong>Dashboards move.</strong> Cloudflare now defaults new
+projects to Workers. Pages was behind a small "Continue to Pages" link.
+Knowing what I needed (static hosting from a Git repo) mattered more
+than knowing where the button used to be.</li>
+<li><strong>Security controls can catch your own platform.</strong> The
+CSP blocked an analytics script Cloudflare injected without me adding
+it. The policy did its job; the fix was turning the feature off rather
+than loosening the policy.</li>
+<li><strong>Missing pages should return 404.</strong> Without a 404
+page, every unknown path returned the homepage with a 200. That broke
+<code>robots.txt</code> and would make the site look larger than it is
+to anyone scanning it.</li>
+<li><strong>Colour isn't enough on its own.</strong> A link that's only
+a different colour can be invisible to colour-blind visitors. An
+automated scan caught it in seconds.</li>
+<li><strong>Sticky settings start small.</strong> HSTS and preload are
+easy to turn on and slow to undo, so I chose the reversible settings
+first.</li>
+</ul>
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li>Raise HSTS max age to 6–12 months after a stable month. It's the
+only remaining Lighthouse note.</li>
+<li>Manual accessibility checks Lighthouse lists but can't automate,
+such as a full keyboard and screen reader pass</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li>RFC 7208 (SPF), RFC 6376 (DKIM), RFC 7489 (DMARC), RFC 7505 (Null
+MX)</li>
+<li>RFC 4033 (DNSSEC)</li>
+<li>RFC 6797 (HSTS)</li>
+<li><a href="https://www.w3.org/TR/WCAG22/">WCAG 2.2</a></li>
+<li><a
+href="https://developers.cloudflare.com/pages/framework-guides/deploy-anything">Cloudflare
+Pages: deploy a static site</a></li>
+</ul>
+
+  </main>
+  <footer>
+    <p><a href="/">&larr; Back to cyberhippo.ca</a></p>
+  </footer>
+</body>
+</html>
