@@ -205,3 +205,18 @@ footer {
 .table-wrap:focus-visible, .article pre:focus-visible { outline: 2px solid var(--yellow); outline-offset: 3px; }
 .article table code { white-space: nowrap; overflow-wrap: normal; }
 .article table { min-width: 560px; }
+
+/* ---- Homepage mascot ---- */
+.intro { display: flex; align-items: center; gap: 40px; }
+.intro-text { flex: 1 1 auto; min-width: 0; }
+.mascot {
+  order: 2;
+  flex: 0 0 auto;
+  width: 210px;
+  height: auto;
+  filter: drop-shadow(0 0 18px rgba(255, 42, 109, 0.35));
+}
+@media (max-width: 640px) {
+  .intro { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .mascot { order: 0; width: 140px; }
+}
