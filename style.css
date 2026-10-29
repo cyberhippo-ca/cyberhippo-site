@@ -116,6 +116,9 @@ a { color: var(--cyan); text-decoration: none; }
 main a { text-decoration: underline; text-underline-offset: 3px; }
 a:hover { text-decoration: underline; }
 a:focus-visible { outline: 2px solid var(--yellow); outline-offset: 3px; }
+/* Button-style links stay un-underlined, even inside <main> */
+.links a { text-decoration: none; }
+.links a:hover { text-decoration: none; }
 
 section {
   padding: 28px 0;
