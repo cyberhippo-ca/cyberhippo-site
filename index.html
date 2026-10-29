@@ -66,10 +66,40 @@
     <section>
       <h2>Homelab</h2>
       <p>
-        A home lab I use to practice security and IAM work: an OPNsense firewall
-        with VLANs, Proxmox hosts, Wazuh for monitoring and vulnerability
-        management, and an identity lab with Active Directory, Entra ID and Keycloak.
+        My home lab is where I practice security, IAM and IT operations, and
+        where the write-ups below come from. Everything sits behind my own
+        firewall, and remote access only works over VPN.
       </p>
+      <ul class="lab">
+        <li>
+          <h3><span class="status status-running" aria-hidden="true"></span>Running</h3>
+          <ul>
+            <li>OPNsense firewall on a Protectli box, with VLANs</li>
+            <li>WireGuard VPN for remote access</li>
+            <li>Pi-hole for DNS filtering</li>
+            <li>Docker services: Homepage, Uptime Kuma, Plex</li>
+            <li>Cloudflare Tunnel and Access for the one app I share outside the house</li>
+            <li>Proxmox on a mini PC</li>
+          </ul>
+        </li>
+        <li>
+          <h3><span class="status status-building" aria-hidden="true"></span>In progress</h3>
+          <ul>
+            <li>Identity lab: Active Directory, Entra ID and Keycloak</li>
+            <li>Home Assistant on its own VLAN</li>
+            <li>Suricata for intrusion detection</li>
+          </ul>
+        </li>
+        <li>
+          <h3><span class="status status-testing" aria-hidden="true"></span>Testing</h3>
+          <ul>
+            <li>Wazuh for monitoring and vulnerability scanning</li>
+            <li>Project NOMAD: offline Wikipedia, maps and local AI on a gaming laptop</li>
+            <li>Ollama running local AI models</li>
+            <li>Kali Linux on an isolated lab VLAN for attack practice</li>
+          </ul>
+        </li>
+      </ul>
       <h3>Write-ups</h3>
       <ul>
           <li><a href="/writeups/domain-hardening">Hardening a personal domain</a>: email spoofing protection, DNSSEC, HSTS, an A+ security headers grade and 100 across Lighthouse.</li>

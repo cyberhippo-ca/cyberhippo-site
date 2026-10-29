@@ -154,6 +154,30 @@ h3 { font-size: 1rem; margin: 0 0 4px; color: var(--text); }
 
 ul li::marker { color: var(--pink); }
 
+/* Homelab status cards: one column on phones, side by side when there's room */
+.lab {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0 28px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+}
+.lab > li {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 0 18px rgba(214, 26, 214, 0.12);
+}
+.lab h3 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.lab ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 0.95rem; }
+.lab ul li + li { margin-top: 4px; }
+.status { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.status-running { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.status-building { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
+.status-testing { background: var(--magenta); box-shadow: 0 0 8px var(--magenta); }
+
 footer {
   padding-top: 24px;
   padding-bottom: 120px;
