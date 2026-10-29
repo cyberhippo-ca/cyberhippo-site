@@ -221,6 +221,21 @@ footer {
   .mascot { width: 160px; }
 }
 @media (max-width: 640px) {
-  .intro { flex-direction: column; align-items: flex-start; gap: 16px; }
-  .mascot { order: 0; width: 140px; }
+  /* Phone: small mascot to the left of the handle, name and title;
+     summary and buttons run full width underneath */
+  .intro {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 16px;
+    row-gap: 0;
+    align-items: center;
+  }
+  .intro-text { display: contents; }
+  .mascot { order: 0; grid-column: 1; grid-row: 1 / span 3; width: 96px; align-self: center; }
+  .intro .handle, .intro h1, .intro .tagline { grid-column: 2; }
+  .intro .handle { margin: 0; font-size: 0.9rem; }
+  .intro h1 { font-size: 1.85rem; line-height: 1.08; margin: 2px 0 4px; }
+  .intro .tagline { margin: 0; font-size: 0.92rem; line-height: 1.4; }
+  .intro .summary, .intro .links { grid-column: 1 / -1; }
+  .intro .summary { margin-top: 18px; }
 }
