@@ -188,6 +188,19 @@ footer {
 /* Homepage has no footer: keep the same breathing room above the grid floor */
 .home { padding-bottom: 120px; }
 
+/* Text for screen readers only (visually hidden, still announced) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Respect visitors who turn off motion and effects */
 @media (prefers-reduced-motion: reduce) {
   .links a { transition: none; }
