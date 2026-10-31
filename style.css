@@ -191,6 +191,38 @@ footer {
 }
 
 /* ---- Write-up pages ---- */
+/* Breadcrumb trail: Home › Write-ups › current page.
+   Wraps naturally on narrow phones. */
+.breadcrumb ol {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+}
+.breadcrumb li { display: flex; align-items: center; }
+/* Separator is decoration only: the empty alt text after "/" keeps
+   screen readers from announcing it */
+.breadcrumb li + li::before {
+  content: "\203A";
+  content: "\203A" / "";
+  margin: 0 10px;
+  color: var(--muted);
+}
+.breadcrumb a {
+  color: var(--cyan);
+  text-decoration: none;
+  text-shadow: 0 0 8px rgba(5, 217, 232, 0.45);
+}
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb a[aria-current="page"] {
+  color: var(--muted);
+  text-shadow: none;
+}
+#writeups { scroll-margin-top: 24px; }
 .handle a { color: inherit; text-decoration: none; }
 .article { padding-bottom: 24px; }
 .article h2 {
