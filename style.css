@@ -185,6 +185,9 @@ footer {
   font-size: 0.9rem;
 }
 
+/* Homepage has no footer: keep the same breathing room above the grid floor */
+.home { padding-bottom: 120px; }
+
 /* Respect visitors who turn off motion and effects */
 @media (prefers-reduced-motion: reduce) {
   .links a { transition: none; }
