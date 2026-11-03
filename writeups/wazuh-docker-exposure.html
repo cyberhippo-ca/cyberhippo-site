@@ -112,13 +112,21 @@ address.</li>
 <li>Removed Homepage's own direct mount of the Docker socket, since it
 now goes through the proxy.</li>
 </ol>
-<p>Two things tripped me up:</p>
+<p>Three things tripped me up:</p>
 <ul>
 <li><strong>Containers couldn't find each other by name.</strong> Each
 Docker Compose project gets its own default network, and containers on
 different networks can't see each other. The proxy was in a separate
 Compose project, so I connected it to Homepage's network as an external
 network.</li>
+<li><strong>Homepage broke after I closed the port.</strong> Every
+container widget showed a "connection refused" error to port 2375 on the
+Mac's IP address. Running a request from inside the Homepage container
+straight to the proxy by name returned Docker's version info, so the
+network was fine and the problem had to be config. Reading the config
+file from inside the container showed it still pointed at the Mac's IP:
+my edit had never saved. Checking the file itself, instead of assuming
+from a search result, found it in one step.</li>
 <li><strong>The mount change didn't apply at first.</strong> Mounts are
 set when a container is created, so <code>docker compose restart</code>
 keeps the old ones. <code>docker compose up -d</code> recreates the
@@ -138,7 +146,7 @@ with no host mapping, so it's only reachable inside its Docker
 network.</li>
 <li><code>docker inspect</code> shows no Docker socket mount on
 Homepage.</li>
-<li>Homepage's container widgets still work, now through the
+<li>Homepage's container widgets work again, now through the
 proxy.</li>
 <li>Ports 2375 and 53 no longer appear on the Mac's network
 interfaces.</li>
@@ -154,6 +162,9 @@ were things I'd set up myself and forgotten about.</li>
 <li><strong>A well-configured service can still be exposed.</strong>
 The proxy's own settings were good. The risk came from how it was
 published.</li>
+<li><strong>Test the network and the config separately.</strong> Once a
+request from inside the container worked, I knew the problem was the
+config, not the network.</li>
 <li><strong>Check what depends on something before removing it.</strong>
 Confirming nothing used the old DNS server first meant stopping it broke
 nothing.</li>
