@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tracking Down a 100 Mbps Bottleneck | cyberhippo.ca</title>
+  <meta name="description" content="The whole house was stuck at about 84 Mbps. Reading the speed test, testing one switch at a time, and the damaged cable behind it. Plus why a wired TV couldn't stream from Plex.">
+  <link rel="stylesheet" href="/style.css?v=4">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+  <header class="intro">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <ol>
+        <li><a href="/">Home</a></li>
+        <li><a href="/#writeups">Write-ups</a></li>
+        <li><a href="/writeups/slow-internet" aria-current="page">Slow internet</a></li>
+      </ol>
+    </nav>
+    <h1>Tracking Down a 100 Mbps Bottleneck</h1>
+    <p class="tagline">Write-up &middot; November 2026</p>
+  </header>
+  <main class="article">
+<p>After rewiring my network, the whole house was stuck at about 84
+Mbps. The speed test numbers pointed to a link
+running at 100 Mbps somewhere. Testing one piece at a time found a
+damaged network cable. The same day, a TV that couldn't stream from my
+Plex server turned out to be plugged in on the wrong side of the
+firewall.</p>
+<p><strong>Result:</strong> a new cable brought the connection back to
+full speed, and the TV now streams from Plex on the local network.</p>
+
+<h2 id="the-layout">The layout</h2>
+<p>The house's fibre box (ONT) has only one active port. An unmanaged
+switch on that port feeds two things: the household router, which I
+leave alone, and my firewall, which runs the lab network. The ISP gives
+each its own public IP.</p>
+<pre tabindex="0"><code>Fibre ONT
+  └─ Unmanaged switch
+       ├─ Household router
+       └─ Firewall (OPNsense)
+            └─ Lab switch ── lab devices</code></pre>
+
+<h2 id="1-reading-the-speed-test">1. Reading the speed test</h2>
+<p>Speed tests showed <strong>84 Mbps down and 81 up</strong>, and it
+affected the whole house.</p>
+<p>Two things stood out:</p>
+<ul>
+<li><strong>Download and upload were almost equal.</strong> A slow
+connection from the ISP doesn't usually look that even.</li>
+<li><strong>Both were just under 100.</strong> A 100 Mbps network link
+can't deliver the full 100 once overhead is taken out, so a result in the
+80s and low 90s is what a 100 Mbps link looks like.</li>
+</ul>
+<p>Since the whole house was affected, I started with what everything
+shares: the switches and cables near the ONT.</p>
+
+<h2 id="2-one-change-at-a-time">2. One change at a time</h2>
+<p>My first move was to unplug the firewall. That changed two things at
+once, the firewall and its cables, so the result couldn't tell me which
+one mattered.</p>
+<p>I started over and tested one switch and one link at a time, with the
+firewall unplugged. The lab switch's port lights gave the answer: on the
+link to the unmanaged switch, the port showed <strong>one light (100
+Mbps) instead of two (gigabit)</strong>.</p>
+
+<h2 id="3-the-cause">3. The cause: a damaged cable</h2>
+<p>Gigabit Ethernet uses all four wire pairs in a cable. 100 Mbps only
+needs two. If a cable has a damaged pair, the devices on each end don't
+report an error. They quietly agree on 100 Mbps instead, and everything
+still works, just slower.</p>
+<p>A new cable brought the link back to gigabit and the speed tests back
+to full speed.</p>
+
+<h2 id="4-the-tv">4. The TV that couldn't stream</h2>
+<p>The same day, a TV I'd wired in gave a "not fast enough" playback error
+when streaming from my Plex server on the lab network.</p>
+<p>The TV was plugged into the <strong>unmanaged switch at the
+ONT</strong>. That put it directly on the internet, outside both the
+household network and the lab. To Plex, the TV looked like a remote
+device, so instead of streaming over the local network it fell back to
+Plex's relay, which is heavily speed-limited.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="TV fix table"><table>
+<thead>
+<tr><th>Step</th><th>What I found</th><th>Fix</th></tr>
+</thead>
+<tbody>
+<tr><td>Where it was plugged in</td><td>The switch in front of the firewall, so it was outside the lab network</td><td>Moved it behind the firewall, onto the same network as the Plex server</td></tr>
+<tr><td>Its wired port</td><td>100 Mbps only</td><td>Switched it to 5 GHz Wi-Fi, which is faster than its wired port</td></tr>
+</tbody>
+</table></div>
+<p>A switch in front of a firewall is outside the network, even when it's
+sitting in the same rack.</p>
+
+<h2 id="what-i-learned">What I learned</h2>
+<ul>
+<li><strong>The numbers can point to the cause.</strong> Download and
+upload both just under 100 meant a 100 Mbps link, not a slow ISP.</li>
+<li><strong>Change one thing at a time.</strong> My first test changed
+two things and told me nothing.</li>
+<li><strong>Check the port lights.</strong> They showed the link speed
+right away, with no tools.</li>
+<li><strong>A bad cable doesn't always fail.</strong> It can drop to 100
+Mbps and keep working, which makes it easy to miss.</li>
+<li><strong>Know which side of the firewall a device is on.</strong> The
+TV was plugged into the right rack but the wrong network.</li>
+</ul>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Gigabit_Ethernet" target="_blank" rel="noopener noreferrer">Wikipedia: Gigabit Ethernet<span class="sr-only"> (opens in a new tab)</span></a></li>
+<li><a href="https://en.wikipedia.org/wiki/Fast_Ethernet" target="_blank" rel="noopener noreferrer">Wikipedia: Fast Ethernet (100 Mbps)<span class="sr-only"> (opens in a new tab)</span></a></li>
+</ul>
+
+  </main>
+  <footer>
+    <p><a href="/">&larr; Back to cyberhippo.ca</a></p>
+  </footer>
+</body>
+</html>
