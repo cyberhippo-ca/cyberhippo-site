@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My First Wazuh Alert: Finding Exposed Docker Ports | cyberhippo.ca</title>
+  <meta name="description" content="Setting up Wazuh in my home lab, then following its first alert to a Docker API and a leftover DNS server that were open to the whole network.">
+  <link rel="stylesheet" href="/style.css?v=4">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+  <header class="intro">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <ol>
+        <li><a href="/">Home</a></li>
+        <li><a href="/#writeups">Write-ups</a></li>
+        <li><a href="/writeups/wazuh-docker-exposure" aria-current="page">Wazuh</a></li>
+      </ol>
+    </nav>
+    <h1>My First Wazuh Alert: Finding Exposed Docker Ports</h1>
+    <p class="tagline">Write-up &middot; November 2026</p>
+  </header>
+  <main class="article">
+<p>I installed Wazuh, a free and open-source SIEM, on my Proxmox host and
+connected my Mac mini as the first agent. The first alert I worked through
+looked harmless. Reading the full alert instead of just the change led me
+to two services that were open to my whole network when they didn't need
+to be: the Docker API and a leftover DNS server.</p>
+<p><strong>Result:</strong> both ports closed. The dashboard that needed
+Docker access now reaches it only over an internal Docker network, and
+it no longer has the Docker socket mounted directly.</p>
+
+<h2 id="1-setting-up-wazuh">1. Setting up Wazuh</h2>
+<p>Wazuh collects logs and security events from my machines, matches them
+against detection rules, and shows the results in a web dashboard. It's
+also close to what a junior SOC analyst works with day to day, which is
+why I picked it.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Wazuh server setup table"><table>
+<thead>
+<tr><th>Piece</th><th>Setup</th><th>Why</th></tr>
+</thead>
+<tbody>
+<tr><td>Host</td><td>Ubuntu Server 24.04 VM on Proxmox, 4 vCPU, 10 GB RAM, 200 GB disk</td><td>Ubuntu 24.04 is on Wazuh's supported list, and the specs are above the minimum for up to 25 agents</td></tr>
+<tr><td>Clock</td><td>Confirmed NTP sync before installing</td><td>A SIEM orders events by time, and its certificates depend on the right time</td></tr>
+<tr><td>Install</td><td>Wazuh's all-in-one installer</td><td>Puts the indexer, server and dashboard on one host and generates their certificates and passwords</td></tr>
+<tr><td>Upgrades</td><td>Disabled the Wazuh apt source after installing</td><td>Stops routine Ubuntu updates from upgrading Wazuh's parts out of step with each other, as Wazuh's docs recommend</td></tr>
+<tr><td>First agent</td><td>The Mac mini, deployed from the dashboard</td><td>It runs the most services, so it's the most interesting machine to watch</td></tr>
+</tbody>
+</table></div>
+<pre tabindex="0"><code>curl -sO https://packages.wazuh.com/4.14/wazuh-install.sh &amp;&amp; sudo bash ./wazuh-install.sh -a
+sudo sed -i "s/^deb /#deb /" /etc/apt/sources.list.d/wazuh.list
+sudo apt update</code></pre>
+<p>The admin password went into my password manager. The installer's
+file of internal passwords and certificates stays off GitHub.</p>
+<p>A few things confused me on day one:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Day one problems table"><table>
+<thead>
+<tr><th>What I saw</th><th>What it meant</th></tr>
+</thead>
+<tbody>
+<tr><td>Agent stuck on "Pending"</td><td>The agent had registered but hadn't sent data yet. It went Active a minute later; the first check-in was just slow.</td></tr>
+<tr><td>A wall of text in the events view</td><td>The default view shows every field in one column. Adding <code>agent.name</code>, <code>rule.level</code> and <code>rule.description</code> as columns made it readable.</td></tr>
+<tr><td>Lots of "failed" results</td><td>Configuration checks against a hardening benchmark, run when an agent first connects. A hardening to-do list, not attacks.</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="2-the-first-alert">2. The first alert</h2>
+<p>The first alert I worked through was rule 533, level 7:
+<strong>"Listened ports status (netstat) changed"</strong> on the Mac
+mini.</p>
+<p>The alert includes the full list of listening ports now
+(<code>full_log</code>) and at the last check
+(<code>previous_log</code>). Comparing the two, the only change was the
+printing service's port (631, local only) closing. That part was
+benign.</p>
+<p>But the alert also gave me the full list of open ports, so I went
+through it and matched each one to something I run. Two didn't fit:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Unexpected ports table"><table>
+<thead>
+<tr><th>Port</th><th>What it was</th><th>Why it mattered</th></tr>
+</thead>
+<tbody>
+<tr><td>TCP 2375</td><td>A Docker socket proxy, published to the network</td><td>Anyone who can reach the Docker API can see every container, and container details can include environment variables, which often hold secrets</td></tr>
+<tr><td>53</td><td>A Pi-hole container left over from before I moved DNS filtering onto my firewall</td><td>A DNS server nothing used anymore, still answering on the network</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="3-tracing-the-ports">3. Tracing the ports</h2>
+<p>On the Mac, both ports belonged to Docker Desktop, which opens ports
+on the host on behalf of containers:</p>
+<pre tabindex="0"><code>sudo lsof -nP -iTCP:2375 -sTCP:LISTEN
+sudo lsof -nP -i :53</code></pre>
+<p>Then I matched them to containers:</p>
+<pre tabindex="0"><code>docker ps --format "table {{.Names}}\t{{.Ports}}" | grep -E "2375|:53"</code></pre>
+
+<h2 id="4-fixing-the-docker-api">4. Fixing the Docker API</h2>
+<p>The proxy exists so my Homepage dashboard can show container status
+without full Docker access. It was already locked down well: it blocks
+any request that changes something, and it mounts the Docker socket
+read-only. The only problem was that it was published to the network,
+because Homepage reached it through the Mac's IP address.</p>
+<p>The fix was to keep the traffic inside Docker:</p>
+<ol>
+<li>Moved the proxy onto Homepage's Docker network and removed its
+<code>ports:</code> section, so it's no longer published on the
+Mac.</li>
+<li>Turned off the Docker Swarm API sections I don't use.</li>
+<li>Pointed Homepage at the proxy by container name instead of IP
+address.</li>
+<li>Removed Homepage's own direct mount of the Docker socket, since it
+now goes through the proxy.</li>
+</ol>
+<p>Two things tripped me up:</p>
+<ul>
+<li><strong>Containers couldn't find each other by name.</strong> Each
+Docker Compose project gets its own default network, and containers on
+different networks can't see each other. The proxy was in a separate
+Compose project, so I connected it to Homepage's network as an external
+network.</li>
+<li><strong>The mount change didn't apply at first.</strong> Mounts are
+set when a container is created, so <code>docker compose restart</code>
+keeps the old ones. <code>docker compose up -d</code> recreates the
+container with the new settings.</li>
+</ul>
+
+<h2 id="5-the-leftover-pi-hole">5. The leftover Pi-hole</h2>
+<p>Before turning it off, I checked that nothing still depended on it:
+the firewall's DHCP doesn't hand it out as a DNS server, and the
+firewall's resolver doesn't forward to it. Then I stopped the container,
+keeping it around for a few days in case anything broke.</p>
+
+<h2 id="6-verifying-the-fix">6. Verifying the fix</h2>
+<ul>
+<li><code>docker ps</code> shows the proxy as <code>2375/tcp</code>
+with no host mapping, so it's only reachable inside its Docker
+network.</li>
+<li><code>docker inspect</code> shows no Docker socket mount on
+Homepage.</li>
+<li>Homepage's container widgets still work, now through the
+proxy.</li>
+<li>Ports 2375 and 53 no longer appear on the Mac's network
+interfaces.</li>
+</ul>
+
+<h2 id="what-i-learned">What I learned</h2>
+<ul>
+<li><strong>Read the whole alert, not just the change.</strong> The
+change in this alert was harmless. The useful part was the full port
+list that came with it.</li>
+<li><strong>Know what every open port is for.</strong> Both findings
+were things I'd set up myself and forgotten about.</li>
+<li><strong>A well-configured service can still be exposed.</strong>
+The proxy's own settings were good. The risk came from how it was
+published.</li>
+<li><strong>Check what depends on something before removing it.</strong>
+Confirming nothing used the old DNS server first meant stopping it broke
+nothing.</li>
+</ul>
+
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li>Add agents for my Windows laptop and the Proxmox host</li>
+<li>Send the firewall's logs to Wazuh</li>
+<li>Move the lab onto its own VLAN</li>
+</ul>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://documentation.wazuh.com/4.14/quickstart.html" target="_blank" rel="noopener noreferrer">Wazuh 4.14: quickstart (all-in-one install)<span class="sr-only"> (opens in a new tab)</span></a></li>
+<li><a href="https://docs.docker.com/engine/security/protect-access/" target="_blank" rel="noopener noreferrer">Docker: protect the Docker daemon socket<span class="sr-only"> (opens in a new tab)</span></a></li>
+<li><a href="https://docs.docker.com/compose/how-tos/networking/" target="_blank" rel="noopener noreferrer">Docker Compose: networking<span class="sr-only"> (opens in a new tab)</span></a></li>
+</ul>
+
+  </main>
+  <footer>
+    <p><a href="/">&larr; Back to cyberhippo.ca</a></p>
+  </footer>
+</body>
+</html>

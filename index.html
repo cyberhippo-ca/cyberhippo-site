@@ -75,7 +75,8 @@
           <ul>
             <li>OPNsense firewall on a Protectli box, with VLANs</li>
             <li>WireGuard VPN for remote access</li>
-            <li>Pi-hole for DNS filtering</li>
+            <li>DNS filtering on the firewall, with ad, tracker and threat blocklists</li>
+            <li>Wazuh SIEM on Proxmox, starting with the Mac mini as the first agent</li>
             <li>Docker services: Homepage, Uptime Kuma, Plex</li>
             <li>Cloudflare Tunnel and Access for the one app I share outside the house</li>
             <li>Proxmox on a mini PC</li>
@@ -92,7 +93,6 @@
         <li>
           <h3><span class="status status-testing" aria-hidden="true"></span>Testing</h3>
           <ul>
-            <li>Wazuh for monitoring and vulnerability scanning</li>
             <li>Project NOMAD: offline Wikipedia, maps and local AI on a gaming laptop</li>
             <li>Ollama running local AI models</li>
             <li>Kali Linux on an isolated lab VLAN for attack practice</li>
@@ -102,6 +102,7 @@
       <h3 id="writeups">Write-ups</h3>
       <ul>
           <li><a href="/writeups/domain-hardening">Hardening a personal domain</a>: email spoofing protection, DNSSEC, HSTS, an A+ security headers grade and 100 across Lighthouse.</li>
+          <li><a href="/writeups/wazuh-docker-exposure">My first Wazuh alert: finding exposed Docker ports</a>: setting up a SIEM, then following its first alert to a Docker API and a leftover DNS server open to the whole network.</li>
           <li><a href="/writeups/remote-access">Closing exposed remote desktop with WireGuard</a>: a firewall audit, attack traffic in the logs, and every other way in from the internet.</li>
           <li><a href="/writeups/project-nomad">An offline knowledge and AI box with Project NOMAD</a>: offline Wikipedia, maps and a local AI model on a gaming laptop, and why a map download broke the setup wizard.</li>
       </ul>
