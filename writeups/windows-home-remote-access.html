@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Remote Access to a Windows Home Laptop: SSH Keys and VNC Through a Tunnel | cyberhippo.ca</title>
+  <meta name="description" content="Windows Home has no Remote Desktop. Setting up key-only SSH and loopback-only VNC through an SSH tunnel, and the six things that broke along the way.">
+  <link rel="stylesheet" href="/style.css?v=7">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+  <header class="intro">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <ol>
+        <li><a href="/">Home</a></li>
+        <li><a href="/writeups/">Write-ups</a></li>
+        <li><a href="/writeups/windows-home-remote-access" aria-current="page">Windows remote access</a></li>
+      </ol>
+    </nav>
+    <h1>Remote Access to a Windows Home Laptop: SSH Keys and VNC Through a Tunnel</h1>
+    <p class="tagline">Write-up &middot; <time datetime="2026-11-04">November 4, 2026</time></p>
+  </header>
+  <main class="article">
+<p>I wanted to manage the always-on Windows laptop in my lab from my
+MacBook, and install a Wazuh agent on it without walking over to it.
+The laptop runs Windows 11 Home, which can't accept Remote Desktop
+connections. So I set up SSH for the command line and VNC for the
+screen, with VNC only reachable through the SSH connection.</p>
+<p><strong>Result:</strong> SSH with key-only login, passwords turned
+off, screen sharing that never opens a port to the network, and the
+laptop reporting to Wazuh as my second agent.</p>
+
+<h2 id="the-plan">The plan</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Plan table"><table>
+<thead>
+<tr><th>Piece</th><th>Choice</th><th>Why</th></tr>
+</thead>
+<tbody>
+<tr><td>Command line</td><td>OpenSSH Server, built into Windows as an optional feature</td><td>Works on Windows Home, and it's how I already manage my Linux machines</td></tr>
+<tr><td>Login</td><td>SSH keys only</td><td>Nothing to guess or brute-force</td></tr>
+<tr><td>Screen</td><td>TightVNC, accepting connections from the laptop itself only</td><td>Works on Windows Home</td></tr>
+<tr><td>Security for VNC</td><td>An SSH tunnel</td><td>VNC passwords max out at 8 characters and VNC traffic isn't encrypted. The tunnel fixes both, and the VNC port is never open to the network</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="1-ssh">1. Installing the SSH server</h2>
+<pre tabindex="0"><code>Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+Start-Service sshd
+Set-Service -Name sshd -StartupType Automatic</code></pre>
+<p>The install downloads from Windows Update and sat on "Operation
+running" for a long time with no progress bar. Checking from a second
+window showed it had actually finished:</p>
+<pre tabindex="0"><code>Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH*'</code></pre>
+
+<h2 id="2-wrong-address">2. The wrong IP address</h2>
+<p>The first address I found was a 172.x address. It belonged to the
+virtual adapter that WSL2 adds, which is internal to the laptop. This
+listed only the real adapters:</p>
+<pre tabindex="0"><code>Get-NetIPAddress -AddressFamily IPv4 | Where-Object InterfaceAlias -notmatch 'vEthernet|Loopback' | Select-Object InterfaceAlias, IPAddress</code></pre>
+
+<h2 id="3-timeout">3. SSH timed out</h2>
+<p>From the Mac, the connection hung, and a port test on 22 timed out.
+Two things were in the way:</p>
+<ul>
+<li><strong>The Wi-Fi was set to Public.</strong> Windows applies its
+strictest firewall profile to Public networks. I changed the home
+network to Private, which is the right setting for a network you
+trust.</li>
+<li><strong>A VPN was connected on the laptop.</strong> VPN clients can
+route or block local network traffic. I disconnected it.</li>
+</ul>
+<p>I changed both before testing again, so I can't say which one was
+blocking. Next time I'd change one at a time.</p>
+
+<h2 id="4-keys">4. Key-only login</h2>
+<p>For administrator accounts, Windows' SSH server only reads keys from
+one shared file, not the user's own folder. The file also has
+to be locked down, or the server ignores it:</p>
+<pre tabindex="0"><code>Add-Content -Path C:\ProgramData\ssh\administrators_authorized_keys -Value '&lt;public key&gt;' -Encoding ascii
+icacls C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r /grant "Administrators:F" /grant "SYSTEM:F"</code></pre>
+<p>I tested the key with password login disabled on the client side,
+then turned off passwords on the server and restarted it. A
+password-only attempt now gets <code>Permission denied</code>.</p>
+<p>One catch: when <code>ssh-keygen</code> offered to overwrite my
+existing key, I said no. Overwriting a key breaks everything else that
+key is used for.</p>
+
+<h2 id="5-vnc">5. VNC through the tunnel</h2>
+<pre tabindex="0"><code>Mac localhost:5901  ──SSH tunnel──▶  laptop 127.0.0.1:5900 (VNC server)</code></pre>
+<p>The VNC server only accepts connections from the laptop itself, and
+there's no firewall exception for it. The tunnel delivers the
+connection to the laptop, so from the server's side it arrives
+locally:</p>
+<pre tabindex="0"><code>ssh -L 5901:127.0.0.1:5900 user@laptop</code></pre>
+<p>Getting it to work took five fixes:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="VNC problems table"><table>
+<thead>
+<tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+</thead>
+<tbody>
+<tr><td>The tunnel reached nothing, though the server said it was listening</td><td>Likely <code>localhost</code> resolving to the IPv6 address on the Windows side, while the server listened on IPv4</td><td>Tunnel to <code>127.0.0.1</code> instead of <code>localhost</code></td></tr>
+<tr><td>macOS Screen Sharing: "incompatible with this version"</td><td>Apple's viewer doesn't support the options this VNC server uses</td><td>TigerVNC Viewer, which is free and open source</td></tr>
+<tr><td>"No matching security types"</td><td>The newest TightVNC (4.x) didn't offer a login method other viewers support. Its download page says encrypted connections need its paid version at both ends</td><td>Switched to the older TightVNC 2.8 release, which the project still supports</td></tr>
+<tr><td>"Couldn't run server in application mode"</td><td>I'd opened the app-mode shortcut, which I'd disabled at install</td><td>Opened the service's own settings instead</td></tr>
+<tr><td>"Authentication failed"</td><td>Password mismatch</td><td>Reset an 8-character password and restarted the service</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="6-verify">6. Checking it's not exposed</h2>
+<p>From the Mac, without the tunnel, a test on the VNC port times out.
+The only way to reach the screen is through an SSH connection, which
+needs my key.</p>
+
+<h2 id="7-wazuh">7. The Wazuh agent</h2>
+<p>With SSH working, I installed the Wazuh agent from the commands the
+Wazuh dashboard generates. The silent installer returns before it
+finishes, so the "start service" step can run too early. Checking the
+service and starting it fixed that, and the laptop showed up as Active.
+The agent covers Windows only, not the WSL2 Linux environment on the same
+laptop.</p>
+
+<h2 id="what-i-learned">What I learned</h2>
+<ul>
+<li><strong>Network profile matters on Windows.</strong> The same
+firewall behaves very differently on a Public network.</li>
+<li><strong>Change one thing at a time.</strong> I didn't, and I still
+don't know which of two settings blocked SSH.</li>
+<li><strong>Layer it.</strong> VNC on its own is weak. Loopback only plus
+an SSH tunnel plus key-only SSH makes it fine.</li>
+<li><strong>Newest isn't always compatible.</strong> The current
+TightVNC wouldn't work with standard viewers; the older supported
+release did.</li>
+<li><strong>Read the error, then check each half.</strong> Each failure
+moved one step further along: network, tunnel, server, viewer,
+password.</li>
+</ul>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse" target="_blank" rel="noopener noreferrer">Microsoft: Get started with OpenSSH for Windows<span class="sr-only"> (opens in a new tab)</span></a></li>
+<li><a href="https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_keymanagement" target="_blank" rel="noopener noreferrer">Microsoft: Key-based authentication in OpenSSH for Windows<span class="sr-only"> (opens in a new tab)</span></a></li>
+<li><a href="https://www.tightvnc.com/download/" target="_blank" rel="noopener noreferrer">TightVNC downloads<span class="sr-only"> (opens in a new tab)</span></a></li>
+<li><a href="https://tigervnc.org/" target="_blank" rel="noopener noreferrer">TigerVNC<span class="sr-only"> (opens in a new tab)</span></a></li>
+</ul>
+
+  </main>
+  <footer>
+    <p><a href="/">&larr; Back to cyberhippo.ca</a></p>
+  </footer>
+</body>
+</html>
