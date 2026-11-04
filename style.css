@@ -151,6 +151,7 @@ h3 { font-size: 1rem; margin: 0 0 4px; color: var(--text); }
   box-shadow: 0 0 18px rgba(214, 26, 214, 0.12);
 }
 .grid p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+.grid li.wide { grid-column: 1 / -1; }
 
 ul li::marker { color: var(--pink); }
 
@@ -267,6 +268,8 @@ footer {
   border-top: 1px solid transparent;
   border-image: linear-gradient(90deg, var(--pink), var(--magenta), transparent) 1;
 }
+/* A write-up that opens with a heading skips the divider and top gap */
+.article > h2:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 .article h3 { margin-top: 24px; }
 .article p, .article li { max-width: 70ch; }
 .article img {
