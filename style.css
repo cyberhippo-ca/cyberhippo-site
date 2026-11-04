@@ -345,3 +345,67 @@ footer {
   .hero-body .summary { margin-top: 0; }
   .hero-name .tagline { margin-bottom: 18px; }
 }
+
+/* ---- Skills and tools page ----
+   Two tables (work, then lab), one row per area.
+   Phones: each row stacks, area name above its tools. */
+.section-intro { margin: 0 0 12px; color: var(--muted); font-size: 0.95rem; }
+.skills-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 18px rgba(214, 26, 214, 0.12);
+}
+.skills-table thead th {
+  text-align: left;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cyan);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.skills-table tbody th,
+.skills-table td {
+  padding: 12px 16px;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(214, 26, 214, 0.18);
+}
+.skills-table tbody tr:last-child th,
+.skills-table tbody tr:last-child td { border-bottom: 0; }
+.skills-table tbody th { text-align: left; font-weight: 600; width: 34%; }
+.skills-table .roles {
+  display: block;
+  margin-top: 2px;
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.inline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.inline li {
+  padding: 2px 10px;
+  border: 1px solid rgba(214, 26, 214, 0.45);
+  border-radius: 6px;
+  background: rgba(13, 2, 33, 0.45);
+  font-size: 0.93rem;
+  line-height: 1.5;
+}
+.note { color: var(--yellow); font-size: 0.85rem; }
+
+@media (max-width: 39.99em) {
+  .skills-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .skills-table, .skills-table tbody, .skills-table tr,
+  .skills-table tbody th, .skills-table td { display: block; width: auto; }
+  .skills-table tbody th { padding-bottom: 4px; border-bottom: 0; color: var(--cyan); }
+  .skills-table td { padding-top: 0; }
+}
