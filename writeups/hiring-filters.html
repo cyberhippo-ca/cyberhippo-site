@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>What 223 Job Applications Taught Me About Hiring Filters | cyberhippo.ca</title>
+  <meta name="description" content="What 223 job applications, 2 interviews and 95 unanswered applications taught me about automated hiring filters, and why they look like an access control nobody is checking.">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="What 223 Job Applications Taught Me About Hiring Filters">
+  <meta property="og:description" content="What 223 job applications, 2 interviews and 95 unanswered applications taught me about automated hiring filters, and why they look like an access control nobody is checking.">
+  <meta property="og:url" content="https://cyberhippo.ca/writeups/hiring-filters">
+  <meta property="og:image" content="https://cyberhippo.ca/images/og-image.png?v=3">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="627">
+  <meta property="og:image:alt" content="cyberhippo.ca: John Hilsenteger, systems and identity administrator">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="/style.css?v=9">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+  <header class="intro">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <ol>
+        <li><a href="/">Home</a></li>
+        <li><a href="/writeups/">Write-ups</a></li>
+        <li><a href="/writeups/hiring-filters" aria-current="page">Hiring filters</a></li>
+      </ol>
+    </nav>
+    <h1>What 223 Job Applications Taught Me About Hiring Filters</h1>
+    <p class="tagline">Write-up &middot; <time datetime="2026-11-10">November 10, 2026</time></p>
+  </header>
+  <main class="article">
+<h2 id="summary">Summary</h2>
+<p>Since I was laid off in January 2026, I've tracked every job
+application I've sent. As of November 10, 2026: 223 applications, 2
+interviews, 82 rejections, and 95 applications with no reply at all
+after 30+ days.</p>
+<p>The biggest pattern isn't fast rejection. It's silence. I've worked
+in IT for 17+ years, most recently in identity and access management,
+including access reviews for SOC 2 and ISO 27001. From that side, this
+looks like a familiar problem: an automated control that nobody is
+checking.</p>
+
+<h2 id="the-numbers">The numbers</h2>
+<p>My tracker is built from my email, which is the only channel
+employers have used to contact me. All figures are as of November 10,
+2026.</p>
+<img src="/writeups/images/applications-by-month.svg" width="760" height="420"
+     alt="Grouped bar chart of applications sent and replies received each month from January to November 2026. Applications: Jan 6, Feb 29, Mar 10, Apr 22, May 20, Jun 14, Jul 7, Aug 17, Sep 30, Oct 27, Nov 28. Replies: Jan 0, Feb 7, Mar 5, Apr 9, May 13, Jun 12, Jul 6, Aug 5, Sep 17, Oct 11, Nov 6. November covers Nov 1 to 10 only. 13 applications without a recorded date are not included.">
+<img src="/writeups/images/application-outcomes.svg" width="760" height="262"
+     alt="Horizontal bar chart of what happened to 223 applications: 132 no reply (59%), 82 rejected or closed (37%), 9 other replies (4%). 2 led to an interview.">
+<div class="table-wrap" tabindex="0" role="region" aria-label="Outcomes table"><table>
+<caption class="sr-only">Application outcomes as of November 10, 2026</caption>
+<thead>
+<tr><th>Outcome</th><th>Count</th></tr>
+</thead>
+<tbody>
+<tr><td>Applications sent</td><td>223</td></tr>
+<tr><td>Interviews</td><td>2</td></tr>
+<tr><td>Rejected or closed</td><td>82</td></tr>
+<tr><td>No reply yet</td><td>132</td></tr>
+<tr><td>No reply after 30+ days</td><td>95</td></tr>
+<tr><td>Other replies (viewed notices, a recruiter call, a questionnaire)</td><td>9</td></tr>
+</tbody>
+</table></div>
+<p>What surprised me is how few rejections were fast. Only 3 came within
+a day of applying. The median was about two weeks. Most applications go
+into a system and nothing ever comes back.</p>
+
+<h2 id="controls-problem">Why I think it's a controls problem</h2>
+<p>I found a few studies from universities and tech firms that back this
+up. The largest, from Harvard Business School and Accenture, surveyed
+more than 8,000 workers and 2,250 executives in the US, UK and Germany.
+Most employers in that study agreed that qualified candidates are
+screened out because they don't match the exact criteria in the job
+description. They know, and many keep using these filters anyway.</p>
+<p>My best guess is that wording is a real trap in IT. Microsoft renamed
+Azure AD to Entra ID. Some postings say M365, others say Office 365,
+others spell out identity and access management instead of IAM. A
+filter set to match one exact term can reject someone who has done that
+work for years, just because they wrote it the other way.</p>
+
+<h2 id="volume-and-ownership">Volume and ownership</h2>
+<p>In my experience, a lot of it comes down to volume and ownership. I
+see it daily on LinkedIn: a posting I'm interested in went live less
+than an hour ago and already shows 100+ clicks on apply, from people,
+bots or AI agents applying on someone's behalf. Many likely never
+finish. Still, it's almost enough to make me not bother. But I apply
+anyway. And matching my resume and cover letter to each one takes real
+time. Even with AI and a fill-in-the-blank template I created, I still
+proofread every one.</p>
+<p>I suspect recruiters are handling more applications than ever, often
+with smaller HR teams, or with screening outsourced to agencies and
+third-party firms that don't know the role or the team. Automation
+fills the gap, but nobody owns the outcome.</p>
+<p>Some places now require employers to disclose when AI is used to
+screen applicants. Ontario has required it in job postings since
+January 2026 for employers with 25 or more employees. But disclosure
+isn't oversight. New York City requires bias audits of automated hiring
+tools, and a 2025 state audit found that enforcement has been weak.</p>
+
+<h2 id="what-id-check">What I'd check</h2>
+<p>If this were an access control, I believe an auditor would flag it.
+Here's what I'd check first:</p>
+<ul>
+<li>Test the filter with a resume you know is qualified</li>
+<li>Track pass rates and response times</li>
+<li>Review a sample of rejected applications</li>
+<li>Answer every applicant, even with an automated reply</li>
+<li>Give the process a clear owner</li>
+</ul>
+<p>I don't think any of this needs new technology. It needs someone to
+look.</p>
+
+<h2 id="what-im-doing">What I'm doing about it</h2>
+<p>I use each posting's exact terms and write both versions where they
+differ, like "Microsoft Entra ID (Azure AD)". And where I can, I look
+for a referral or reach out to the hiring manager directly.</p>
+
+<h2 id="sources">Sources</h2>
+<ul>
+<li>Harvard Business School and Accenture, <a href="https://www.hbs.edu/managing-the-future-of-work/research/hidden-workers-untapped-talent" target="_blank" rel="noopener noreferrer">Hidden Workers: Untapped Talent<span class="sr-only"> (opens in a new tab)</span></a> (2021)</li>
+<li>HBS Working Knowledge, <a href="https://hbswk.hbs.edu/item/how-to-tap-the-talent-automated-hr-platforms-miss" target="_blank" rel="noopener noreferrer">How to Tap the Talent Automated HR Platforms Miss<span class="sr-only"> (opens in a new tab)</span></a></li>
+<li>Osler, <a href="https://www.osler.com/en/insights/blogs/employment-and-labour-law-blog/ai-in-hiring-ontario-employers-grappling-with-new-job-posting-disclosure-requirement/" target="_blank" rel="noopener noreferrer">AI in hiring: Ontario employers grappling with new job posting disclosure requirement<span class="sr-only"> (opens in a new tab)</span></a> (2026)</li>
+<li>Office of the New York State Comptroller, <a href="https://www.osc.ny.gov/state-agencies/audits/2025/12/02/enforcement-local-law-144-automated-employment-decision-tools" target="_blank" rel="noopener noreferrer">Enforcement of Local Law 144: Automated Employment Decision Tools<span class="sr-only"> (opens in a new tab)</span></a> (2025)</li>
+</ul>
+
+  </main>
+  <footer>
+    <p><a href="/"><span aria-hidden="true">&larr;</span> Back to cyberhippo.ca</a></p>
+  </footer>
+</body>
+</html>
