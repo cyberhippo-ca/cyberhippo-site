@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Remote Access to a Windows Home Laptop: SSH Keys and VNC Through a Tunnel | cyberhippo.ca</title>
-  <meta name="description" content="Windows Home has no Remote Desktop. Setting up key-only SSH and loopback-only VNC through an SSH tunnel, and the six things that broke along the way.">
+  <meta name="description" content="Windows Home has no Remote Desktop. Setting up key-only SSH and loopback-only VNC through an SSH tunnel, and the five things that broke along the way.">
   <link rel="stylesheet" href="/style.css?v=9">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/favicon.ico" sizes="any">
@@ -34,6 +34,7 @@ laptop reporting to Wazuh as my second agent.</p>
 
 <h2 id="the-plan">The plan</h2>
 <div class="table-wrap" tabindex="0" role="region" aria-label="Plan table"><table>
+<caption class="sr-only">The plan: pieces, choices and reasons</caption>
 <thead>
 <tr><th>Piece</th><th>Choice</th><th>Why</th></tr>
 </thead>
@@ -96,6 +97,7 @@ locally:</p>
 <pre tabindex="0"><code>ssh -L 5901:127.0.0.1:5900 user@laptop</code></pre>
 <p>Getting it to work took five fixes:</p>
 <div class="table-wrap" tabindex="0" role="region" aria-label="VNC problems table"><table>
+<caption class="sr-only">VNC problems and fixes</caption>
 <thead>
 <tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
 </thead>
@@ -147,7 +149,7 @@ password.</li>
 
   </main>
   <footer>
-    <p><a href="/">&larr; Back to cyberhippo.ca</a></p>
+    <p><a href="/"><span aria-hidden="true">&larr;</span> Back to cyberhippo.ca</a></p>
   </footer>
 </body>
 </html>
