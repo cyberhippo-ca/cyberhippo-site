@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Setting Up Claude Code on a Live Site, With Guardrails | cyberhippo.ca</title>
+  <meta name="description" content="Installing Claude Code on a live static site, limiting what it can do with CLAUDE.md rules and a deny list, and what its first audit found and got wrong.">
+  <link rel="stylesheet" href="/style.css?v=9">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+  <header class="intro">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <ol>
+        <li><a href="/">Home</a></li>
+        <li><a href="/writeups/">Write-ups</a></li>
+        <li><a href="/writeups/claude-code-guardrails" aria-current="page">Claude Code guardrails</a></li>
+      </ol>
+    </nav>
+    <h1>Setting Up Claude Code on a Live Site, With Guardrails</h1>
+    <p class="tagline">Write-up &middot; <time datetime="2026-11-10">November 10, 2026</time></p>
+  </header>
+  <main class="article">
+<h2 id="summary">Summary</h2>
+<p>I built cyberhippo.ca with Claude chat, copying Git patches into my
+repo by hand. This time I installed Claude Code and let it work in the
+repo directly. This site is live: every push to <code>main</code>
+redeploys it through Cloudflare Pages. So before it touched anything, I
+set limits on what it could do.</p>
+<p>Its first task was an accessibility and link audit. It found some
+problems and made five small fixes. I reviewed every change and made
+the signed commits myself. It also got a few things wrong, which are
+listed below.</p>
+
+<h2 id="the-plan">The plan</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Plan table"><table>
+<caption class="sr-only">The plan: pieces, choices and reasons</caption>
+<thead>
+<tr><th>Piece</th><th>Choice</th><th>Why</th></tr>
+</thead>
+<tbody>
+<tr><td>Install</td><td>Native installer on my MacBook Pro</td><td>No Node.js needed, and it updates itself</td></tr>
+<tr><td>Account</td><td>My Claude Pro plan</td><td>Not pay-per-use API billing</td></tr>
+<tr><td>Instructions</td><td><code>CLAUDE.md</code> in the repo</td><td>Claude Code reads it at the start of every session</td></tr>
+<tr><td>First task</td><td>Audit pages, list findings, no changes</td><td>See what it finds before it edits anything</td></tr>
+<tr><td>Commits</td><td>Me, signed with my SSH key</td><td>A signature should mean I reviewed the change</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="install">Install and sign in</h2>
+<pre tabindex="0"><code>curl -fsSL https://claude.ai/install.sh | bash
+claude --version
+claude doctor</code></pre>
+<p>On first launch the header said "API Usage Billing", and the default
+mode was auto mode, which runs actions it considers low-risk without
+asking. I signed in with <code>/login</code> using my Pro account, and
+changed the mode so it asks before making changes.</p>
+
+<h2 id="claude-md">CLAUDE.md</h2>
+<p>Running <code>/init</code> made Claude Code read the repo and write a
+<code>CLAUDE.md</code> file. It got the important parts right:</p>
+<ul>
+<li>The site is plain HTML and CSS with no build step, and pushing to
+<code>main</code> redeploys it.</li>
+<li>The Content Security Policy in <code>_headers</code> blocks scripts,
+inline styles and outside resources.</li>
+<li>The stylesheet version (<code>style.css?v=9</code>) has to be bumped
+on every page when the CSS changes.</li>
+<li>Adding a write-up touches four files. I checked this against an
+older commit and it was correct.</li>
+</ul>
+<p>One line said "only commit/push when asked." That still leaves room
+for a commit, so I changed it to "never commit or push" and added a
+Rules section:</p>
+<ul>
+<li>Never run <code>git commit</code>, <code>git push</code>, or anything
+that changes git history.</li>
+<li>For audits, list findings first and wait for approval before
+changing files.</li>
+<li>Don't change <code>_headers</code> without asking first.</li>
+</ul>
+
+<h2 id="audit">The audit</h2>
+<p>I used Plan mode for the audit, so Claude Code could read files but
+not change them. I asked it to check for broken internal links, missing
+alt text and WCAG 2.1 AA issues. Because I was close to my weekly usage
+limit, I limited the audit to two pages: the home page and the Windows
+Home remote access write-up.</p>
+<p>It reported:</p>
+<ul>
+<li>No broken internal links.</li>
+<li>No contrast failures, with ratios for each colour. I had the top
+values recalculated separately with the WCAG formula and they
+matched.</li>
+<li>A date that didn't match between an article and the lists that link
+to it.</li>
+<li>A duplicated block in <code>_headers</code>.</li>
+<li>A meta description that said "six things that broke" when the
+article lists five.</li>
+<li>Tables with no caption, and a footer arrow that screen readers read
+out loud.</li>
+<li>Heading levels on the home page and no skip links.</li>
+</ul>
+<p>It also listed what it couldn't check from the source alone, like how
+pages actually render, zoom and screen reader output.</p>
+<p>I approved five fixes: the date, the meta description, table
+captions, the duplicate header block and the footer arrow. I left the
+heading and skip link fixes for later because they need a CSS change on
+every page. I kept the <code>tabindex</code> on code blocks on purpose,
+because scrollable blocks should be reachable by keyboard.</p>
+
+<h2 id="review">Review and commit</h2>
+<p>I reviewed every change with <code>git diff</code>, made two signed
+commits (one for <code>CLAUDE.md</code>, one for the fixes) and pushed.
+Then I checked the live site with <code>curl</code>: the new date was
+live and the image header I'd touched in <code>_headers</code> was still
+correct.</p>
+
+<h2 id="locking-it-down">Locking it down</h2>
+<p>Later I connected the GitHub CLI. Its token can read and write all my
+repos, and Claude Code can run <code>gh</code> commands. A rule in
+<code>CLAUDE.md</code> is an instruction, not a block, so I added a deny
+list in <code>.claude/settings.json</code>:</p>
+<pre tabindex="0"><code>{
+  "permissions": {
+    "deny": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git reset:*)",
+      "Bash(git rebase:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh repo delete:*)",
+      "Bash(gh api:*)"
+    ]
+  }
+}</code></pre>
+<p>To test it, I asked Claude Code to run <code>git push --dry-run</code>.
+It was rejected with no prompt. That gives three layers: a mode that
+asks before changes, the rules in <code>CLAUDE.md</code>, and the deny
+list.</p>
+
+<h2 id="what-it-got-wrong">What it got wrong</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Mistakes table"><table>
+<caption class="sr-only">What Claude Code got wrong</caption>
+<thead>
+<tr><th>Problem</th><th>What happened</th></tr>
+</thead>
+<tbody>
+<tr><td>Wrong review command</td><td>It told me to review the new <code>CLAUDE.md</code> with <code>git diff</code>. That shows nothing for a file git isn't tracking yet.</td></tr>
+<tr><td>Filled in a blank</td><td>My prompt still had a placeholder in it. It picked an answer itself. It did say so, but I had to check the fact.</td></tr>
+<tr><td>Did the wrong task</td><td>Once, I asked for an edit and it ran my check commands instead.</td></tr>
+<tr><td>Wrong status</td><td>It said my fixes weren't committed when they were. Its own check showed nothing to push.</td></tr>
+</tbody>
+</table></div>
+<p>It also did some things well. When I pasted commit and push commands
+into the chat by mistake, it ran only <code>git status</code> and handed
+the rest back to me. When a new session was given credit for something
+an earlier session had found, it corrected that. Each session starts
+fresh, and <code>CLAUDE.md</code> is what carries over.</p>
+
+<h2 id="differently">What I'd do differently</h2>
+<ul>
+<li>Set the permission mode and the deny list before the first session,
+not after.</li>
+<li>Fill in every blank in a prompt before sending it.</li>
+<li>Plan the audit around the usage limit from the start.</li>
+</ul>
+
+<h2 id="whats-next">What's next</h2>
+<ul>
+<li>Audit the rest of the pages, and fix the heading levels and skip
+links.</li>
+<li>Manage this domain's DNS records as code with Terraform, using
+Claude Code with the same guardrails.</li>
+</ul>
+
+  </main>
+  <footer>
+    <p><a href="/"><span aria-hidden="true">&larr;</span> Back to cyberhippo.ca</a></p>
+  </footer>
+</body>
+</html>
