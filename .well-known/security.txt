@@ -1,0 +1,7 @@
+# cyberhippo.ca security contact
+# Found something? Thanks for checking. Please tell me privately first.
+
+Contact: https://www.linkedin.com/in/jhilsenteger
+Expires: 2027-11-01T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://cyberhippo.ca/.well-known/security.txt
